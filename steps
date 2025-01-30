@@ -1,0 +1,72 @@
+1. Crea el Dockerfile
+
+dockerfile
+Copy
+# Dockerfile
+FROM node:18-alpine AS builder
+
+# Establece el directorio de trabajo
+WORKDIR /app
+
+# Copia los archivos del proyecto
+COPY package.json yarn.lock ./
+
+# Instala todas las dependencias (incluidas las de desarrollo)
+RUN yarn install --frozen-lockfile --production=false
+
+# Copia el resto de los archivos
+COPY . .
+
+# Construye la aplicación
+RUN yarn build
+
+# Fase final: servidor Nginx
+FROM nginx:alpine
+COPY --from=builder /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+2. Reconstruye la Imagen
+Ejecuta el siguiente comando para reconstruir la imagen:
+
+
+docker build -t excalidraw-arm:latest .
+Explicación de los Cambios
+Instalar dependencias de desarrollo:
+
+Usa yarn install --frozen-lockfile --production=false para instalar todas las dependencias, incluidas las de desarrollo.
+
+Esto asegura que cross-env y otras herramientas necesarias estén disponibles durante el proceso de construcción.
+
+Copia primero package.json y yarn.lock:
+
+Esto permite que Docker cachee la capa de yarn install, lo que acelera las reconstrucciones posteriores.
+
+Copia el resto de los archivos:
+
+Después de instalar las dependencias, copia el resto de los archivos del proyecto.
+
+Construye la aplicación:
+
+Ejecuta yarn build para generar los archivos estáticos.
+
+Fase final con Nginx:
+
+Usa una imagen ligera de Nginx para servir los archivos estáticos.
+
+3. Levantar el Servicio
+Una vez que la imagen se haya construido correctamente, actualiza tu archivo docker-compose.yml para usar la nueva imagen:
+
+yaml
+Copy
+version: '3'
+services:
+  excalidraw:
+    image: excalidraw-arm:latest  # Usa la imagen que construiste
+    container_name: excalidraw
+    ports:
+      - "3001:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+Levanta el servicio con Docker Compose:
+docker-compose up -d
